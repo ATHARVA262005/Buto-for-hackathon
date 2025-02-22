@@ -17,7 +17,7 @@ const Navbar = () => {
           <div className="hidden md:flex items-center space-x-8">
             <NavLink to="/">Home</NavLink>
             <NavLink to="/about">About</NavLink>
-            <NavLink to="/events/prompt-battle">
+            <NavLink to="http://localhost:5174" >
               <span className="bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent">
                 Prompt Battle
               </span>
@@ -37,16 +37,34 @@ const Navbar = () => {
   );
 };
 
-const NavLink = ({ to, children }) => (
-  <Link 
-    to={to} 
-    className="text-gray-300 hover:text-white transition-colors relative group"
-  >
-    {children}
-    <motion.span 
-      className="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-400 group-hover:w-full transition-all duration-300"
-    />
-  </Link>
-);
+const NavLink = ({ to, children }) => {
+  const isExternal = /^(http|https):\/\//.test(to);
+  if (isExternal) {
+    return (
+      <a 
+        href={to} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-gray-300 hover:text-white transition-colors relative group"
+      >
+        {children}
+        <motion.span 
+          className="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-400 group-hover:w-full transition-all duration-300"
+        />
+      </a>
+    );
+  }
+  return (
+    <Link 
+      to={to} 
+      className="text-gray-300 hover:text-white transition-colors relative group"
+    >
+      {children}
+      <motion.span 
+        className="absolute -bottom-1 left-0 w-0 h-0.5 bg-cyan-400 group-hover:w-full transition-all duration-300"
+      />
+    </Link>
+  );
+};
 
 export default Navbar;

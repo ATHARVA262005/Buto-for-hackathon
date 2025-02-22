@@ -23,6 +23,7 @@ function CTA() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-semibold text-lg"
+              onClick={() => window.open('http://localhost:5173', '_blank')}
             >
               Get Started Free
             </motion.button>
