@@ -13,12 +13,7 @@ const { connectDB } = require('./db/database.config');
 const setupWebSocket = require('./websocket');
 
 const app = express();
-const server = http.createServer(app);
 const PORT = process.env.PORT || 5001;
-
-// Setup WebSocket
-const wss = setupWebSocket(server);
-app.locals.wss = wss;
 
 // Middleware
 app.use(cors({
@@ -37,7 +32,12 @@ app.use('/api/prompts', require('./routes/prompt.route'));
 // DB Connection
 connectDB();
 
-server.listen(PORT, () => {
+// Create HTTP server
+const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+// Setup WebSocket
+const wss = setupWebSocket(server);
+app.locals.wss = wss;
 

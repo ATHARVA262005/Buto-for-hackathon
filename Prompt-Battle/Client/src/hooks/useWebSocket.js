@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-export function useWebSocket(url, onMessage) {
+export const useWebSocket = (url, onMessage) => {
   const ws = useRef(null);
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export function useWebSocket(url, onMessage) {
         ws.current.close();
       }
     };
-  }, [url]);
+  }, [url, onMessage]);
 
   return ws.current;
-}
+};

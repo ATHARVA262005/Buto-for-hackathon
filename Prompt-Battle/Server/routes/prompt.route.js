@@ -237,6 +237,69 @@ router.get('/participant-count', async (req, res) => {
   }
 });
 
+// Add new route to get prompt count by wallet address
+router.get('/count/:walletAddress', async (req, res) => {
+  try {
+    const { walletAddress } = req.params;
+    console.log('Getting prompt count for wallet:', walletAddress);
+
+    // Ensure case-insensitive comparison and trim any whitespace
+    const count = await Prompt.countDocuments({
+      walletAddress: { 
+        $regex: new RegExp(`^${walletAddress}$`, 'i')
+      }
+    });
+
+    console.log('Found prompts:', count);
+    res.json({ count });
+  } catch (error) {
+    console.error('Error getting prompt count:', error);
+    res.status(500).json({ error: 'Failed to get prompt count', details: error.message });
+  }
+});
+
+// Add new route to get user stats by wallet address
+router.get('/user-stats/:walletAddress', async (req, res) => {
+  try {
+    const { walletAddress } = req.params;
+    console.log('Getting user stats for wallet:', walletAddress);
+
+    // Get all prompts with votes
+    const prompts = await Prompt.find({ votes: { $gte: 1 } });
+    
+    // Calculate scores and sort
+    const rankedPrompts = prompts.map(prompt => ({
+      walletAddress: prompt.walletAddress,
+      score: (prompt.votes) / Math.pow((Date.now() - new Date(prompt.createdAt)) / (1000 * 60 * 60) + 2, 1.5)
+    }));
+
+    rankedPrompts.sort((a, b) => b.score - a.score);
+
+    // Find user's best rank
+    const userRank = rankedPrompts.findIndex(p => 
+      p.walletAddress.toLowerCase() === walletAddress.toLowerCase()
+    ) + 1;
+
+    // Get user's prompts and total votes
+    const userPrompts = await Prompt.find({
+      walletAddress: { $regex: new RegExp(`^${walletAddress}$`, 'i') }
+    });
+
+    const totalVotes = userPrompts.reduce((sum, prompt) => sum + prompt.votes, 0);
+    const promptCount = userPrompts.length;
+
+    console.log('Stats found:', { promptCount, totalVotes, userRank });
+    res.json({ 
+      totalPrompts: promptCount,
+      totalVotes: totalVotes,
+      ranking: userRank || 0
+    });
+  } catch (error) {
+    console.error('Error getting user stats:', error);
+    res.status(500).json({ error: 'Failed to get user stats', details: error.message });
+  }
+});
+
 // Then add all other routes
 router.get('/:id/vote-status', async (req, res) => {
   try {

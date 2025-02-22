@@ -18,6 +18,7 @@ import {
 } from "react-icons/fa";
 import NFTCard from '../components/NFTCard';
 import NFTCardList from '../components/NFTCardList';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 const WalletDetails = () => {
   const [walletInfo, setWalletInfo] = useState({
@@ -366,12 +367,13 @@ const WalletDetails = () => {
 const Dashboard = () => {
   const navigate = useNavigate();
   const [userStats, setUserStats] = useState({
-    totalPrompts: 42,
+    totalPrompts: 0, // Initialize to 0
     totalVotes: 156,
     nftsMinted: 8,
     ranking: 15,
   });
-  const [recentNFTs] = useState([
+  const [walletAddress, setWalletAddress] = useState(null);
+  const [recentNFTs, setRecentNFTs] = useState([
     {
       prompt: "I want an AI system that can automatically review code, identify potential bugs, and suggest improvements while following best practices.",
       metadata: {
@@ -400,7 +402,7 @@ const Dashboard = () => {
       votes: 128
     }
   ]);
-  const [recentParticipations] = useState([
+  const [recentParticipations, setRecentParticipations] = useState([
     {
       eventName: "Weekly Prompt Battle",
       date: "2024-02-18",
@@ -416,6 +418,121 @@ const Dashboard = () => {
       problemStatement: "Design an AI code reviewer"
     }
   ]);
+
+  // Modified to fetch both prompt count and votes
+  const fetchUserStats = async (address) => {
+    try {
+      console.log('Fetching user stats for address:', address);
+      const response = await fetch(`http://localhost:5001/api/prompts/user-stats/${address}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('Received user stats:', data);
+      
+      setUserStats(prev => ({
+        ...prev,
+        totalPrompts: data.totalPrompts || 0,
+        totalVotes: data.totalVotes || 0,
+        ranking: data.ranking || 0
+      }));
+    } catch (error) {
+      console.error('Error fetching user stats:', error);
+    }
+  };
+
+  // Update wallet connection effect to use new stats function
+  useEffect(() => {
+    const connectWallet = async () => {
+      try {
+        if (typeof window.aptos === "undefined") {
+          console.log("Petra wallet is not installed");
+          return;
+        }
+
+        const response = await window.aptos.connect();
+        const account = await window.aptos.account();
+        
+        if (account?.address) {
+          console.log('Connected wallet address:', account.address);
+          setWalletAddress(account.address);
+          // Fetch both prompt count and votes
+          fetchUserStats(account.address);
+        }
+      } catch (error) {
+        console.error('Error connecting wallet:', error);
+      }
+    };
+    connectWallet();
+  }, []);
+
+  // Update WebSocket handler
+  const handleWebSocketMessage = (data) => {
+    switch (data.type) {
+      case 'STATS_UPDATE':
+        if (data.walletAddress === walletAddress) {
+          setUserStats(prev => ({
+            ...prev,
+            totalPrompts: data.totalPrompts,
+            totalVotes: data.totalVotes
+          }));
+        }
+        break;
+      case 'PROMPT_COUNT_UPDATE':
+        if (data.walletAddress === walletAddress) {
+          setUserStats(prev => ({
+            ...prev,
+            totalPrompts: data.count
+          }));
+        }
+        break;
+      case 'NFT_UPDATE':
+        setRecentNFTs(prevNFTs => {
+          const updatedNFTs = [...prevNFTs];
+          const index = updatedNFTs.findIndex(nft => nft._id === data.nft._id);
+          if (index !== -1) {
+            updatedNFTs[index] = data.nft;
+          }
+          return updatedNFTs;
+        });
+        break;
+      case 'PARTICIPATION_UPDATE':
+        setRecentParticipations(data.participations);
+        break;
+    }
+  };
+
+  // Initialize WebSocket connection
+  useWebSocket('ws://localhost:5001', handleWebSocketMessage);
+
+  // Add fetch function for initial data
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const [statsRes, nftsRes, participationsRes] = await Promise.all([
+          fetch('http://localhost:5001/api/user/stats'),
+          fetch('http://localhost:5001/api/user/nfts'),
+          fetch('http://localhost:5001/api/user/participations')
+        ]);
+
+        const [stats, nfts, participations] = await Promise.all([
+          statsRes.json(),
+          nftsRes.json(),
+          participationsRes.json()
+        ]);
+
+        setUserStats(stats);
+        setRecentNFTs(nfts);
+        setRecentParticipations(participations);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
