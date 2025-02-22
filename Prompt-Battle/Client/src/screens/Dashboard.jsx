@@ -17,6 +17,7 @@ import {
   FaCheckCircle,
 } from "react-icons/fa";
 import NFTCard from '../components/NFTCard';
+import NFTCardList from '../components/NFTCardList';
 
 const WalletDetails = () => {
   const [walletInfo, setWalletInfo] = useState({
@@ -399,6 +400,22 @@ const Dashboard = () => {
       votes: 128
     }
   ]);
+  const [recentParticipations] = useState([
+    {
+      eventName: "Weekly Prompt Battle",
+      date: "2024-02-18",
+      rank: 3,
+      votes: 128,
+      problemStatement: "Build a decentralized voting system"
+    },
+    {
+      eventName: "AI Challenge",
+      date: "2024-02-11",
+      rank: 2,
+      votes: 142,
+      problemStatement: "Design an AI code reviewer"
+    }
+  ]);
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -467,18 +484,43 @@ const Dashboard = () => {
       {/* Main Content */}
       <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-3"> {/* Reduced padding and gap */}
         {/* Left Column - Recent NFTs */}
-        <div className="lg:col-span-2">
-          <div className="bg-gray-800 rounded-lg p-4"> {/* Reduced padding */}
-            <h2 className="text-lg font-bold mb-3 flex items-center gap-2"> {/* Smaller text and margin */}
-              <FaMedal className="text-purple-500" size={16} /> {/* Smaller icon */}
-              Recent NFTs
+        <div className="lg:col-span-2 space-y-3"> {/* Added space-y-3 */}
+          <NFTCardList nfts={recentNFTs} />
+
+          {/* Recent Participations Section */}
+          <div className="bg-gray-800 rounded-lg p-4">
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2">
+              <FaTrophy className="text-yellow-500" size={16} />
+              Recent Participations
             </h2>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3"> {/* Changed to 3 columns */}
-              {recentNFTs.map((nft, index) => (
-                <NFTCard
+            <div className="space-y-2">
+              {recentParticipations.map((participation, index) => (
+                <div 
                   key={index}
-                  {...nft}
-                />
+                  className="bg-gray-700/50 rounded-lg p-3 flex items-center justify-between"
+                >
+                  <div className="flex-1">
+                    <h3 className="font-medium">{participation.eventName}</h3>
+                    <p className="text-sm text-gray-400 line-clamp-1">
+                      {participation.problemStatement}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-4 ml-4">
+                    <div className="text-center">
+                      <p className="text-xs text-gray-400">Rank</p>
+                      <p className={`font-bold ${
+                        participation.rank === 1 ? 'text-yellow-400' :
+                        participation.rank === 2 ? 'text-purple-400' :
+                        participation.rank === 3 ? 'text-blue-400' :
+                        'text-gray-400'
+                      }`}>#{participation.rank}</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xs text-gray-400">Votes</p>
+                      <p className="font-bold text-white">{participation.votes}</p>
+                    </div>
+                  </div>
+                </div>
               ))}
             </div>
           </div>

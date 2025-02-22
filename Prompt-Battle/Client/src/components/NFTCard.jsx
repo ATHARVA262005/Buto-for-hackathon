@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Trophy, ThumbsUp } from 'lucide-react';
+import { Trophy, ArrowBigUp } from 'lucide-react';
 
 const NFTCard = ({ 
   metadata, 
@@ -44,7 +44,7 @@ const NFTCard = ({
             <span>#{rank}</span>
           </div>
           <div className="flex items-center gap-1">
-            <ThumbsUp size={14} />
+            <ArrowBigUp size={14} className="fill-current" />
             <span>{votes}</span>
           </div>
         </div>
