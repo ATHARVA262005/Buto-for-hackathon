@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion';
+import { Link } from 'react-router-dom';
 
 const heroImg = "https://i.postimg.cc/05MFvXcB/image.png";
 
@@ -21,33 +22,45 @@ const Hero = () => {
         >
           <h1 className="text-6xl font-bold leading-tight">
             <span className="bg-gradient-to-r from-cyan-400 via-blue-400 to-purple-400 bg-clip-text text-transparent">
-              Transform Your Development
+              BUTO.ai
             </span>
             <br />
-            <span className="text-white">With AI-Powered Collaboration</span>
+            <span className="text-white">Build Together with AI-Powered Collaboration</span>
           </h1>
           
           <p className="text-xl text-gray-400 leading-relaxed">
-            Create, collaborate, and code together with the power of AI. 
-            Streamline your development workflow and boost productivity.
+            Revolutionize your team collaboration with AI-powered project management.
+            Create, chat, and code together while leveraging intelligent assistance
+            and prompt battles.
           </p>
 
           <div className="flex gap-6">
-            <motion.button
+            <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-semibold"
-              onClick={() => window.open('http://localhost:5173', '_blank')}
             >
-              Get Started Free
-            </motion.button>
-            <motion.button
+              <Link
+                to="http://localhost:5173"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-8 py-4 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-xl text-white font-semibold"
+              >
+                Start Building Together
+              </Link>
+            </motion.div>
+            <motion.div
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
-              className="px-8 py-4 border border-gray-700 hover:border-gray-600 rounded-xl text-white font-semibold"
             >
-              Watch Demo
-            </motion.button>
+              <Link
+                to="http://localhost:5174"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-8 py-4 border border-gray-700 hover:border-gray-600 rounded-xl text-white font-semibold"
+              >
+                Join Prompt Battle
+              </Link>
+            </motion.div>
           </div>
         </motion.div>
 

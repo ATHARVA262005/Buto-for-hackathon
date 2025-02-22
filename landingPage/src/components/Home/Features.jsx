@@ -1,131 +1,88 @@
 import { motion } from 'framer-motion';
-import { FaProjectDiagram, FaBrain, FaBookmark, FaHistory } from 'react-icons/fa';
 
-const features = [
-  {
-    title: "Project-Based Collaboration",
-    description: "Create dedicated project spaces and invite team members as collaborators.",
-    icon: <FaProjectDiagram className="text-7xl text-cyan-400/80" />,
-    gradient: "from-cyan-400/20 to-cyan-600/20"
-  },
-  {
-    title: "Context-Aware AI Assistant",
-    description: "Simply use @ai in your chat to get intelligent responses.",
-    icon: <FaBrain className="text-7xl text-purple-400/80" />,
-    gradient: "from-purple-400/20 to-purple-600/20"
-  },
-  {
-    title: "Smart Prompt Bookmarking",
-    description: "Save and share effective prompts with your team.",
-    icon: <FaBookmark className="text-7xl text-blue-400/80" />,
-    gradient: "from-blue-400/20 to-blue-600/20"
-  },
-  {
-    title: "Project History",
-    description: "Access your complete project history or focus on specific conversations.",
-    icon: <FaHistory className="text-7xl text-green-400/80" />,
-    gradient: "from-green-400/20 to-green-600/20"
-  },
-];
-
-function Features() {
-  const cardVariants = {
-    hidden: { opacity: 0, y: 50 },
-    visible: (index) => ({
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.5,
-        delay: 0.1 * index,
-        ease: "easeOut"
-      }
-    })
-  };
+const Features = () => {
+  const features = [
+    {
+      title: "AI-Powered Project Management",
+      description: "Create and manage unlimited projects with an intuitive interface. Add collaborators, set permissions, and organize your workspace efficiently.",
+      icon: "🚀",
+      gradient: "from-blue-500 to-cyan-500"
+    },
+    {
+      title: "Team Chat & AI Assistant",
+      description: "Collaborate in real-time with team chat and get intelligent responses from our AI assistant. Share context and maintain project-specific conversations.",
+      icon: "💬",
+      gradient: "from-purple-500 to-pink-500"
+    },
+    {
+      title: "Smart File Generation",
+      description: "View AI-generated files in our three-column layout. Generated code and content is automatically organized and easily accessible.",
+      icon: "📂",
+      gradient: "from-green-500 to-teal-500"
+    },
+    {
+      title: "Prompt Bookmarking",
+      description: "Learn from the community by accessing curated prompts. Save and organize effective prompts for future use.",
+      icon: "🔖",
+      gradient: "from-orange-500 to-yellow-500"
+    },
+    {
+      title: "Voice Search Integration",
+      description: "Search through your projects and prompts using voice commands for a hands-free experience.",
+      icon: "🎤",
+      gradient: "from-red-500 to-pink-500"
+    },
+    {
+      title: "History Management",
+      description: "Access project-wise and session-wise history. Track changes and maintain context across your development process.",
+      icon: "📅",
+      gradient: "from-indigo-500 to-purple-500"
+    }
+  ];
 
   return (
-    <section className="min-h-screen bg-gray-950 py-32">
-      <div className="max-w-7xl mx-auto px-6">
-        {/* Section Header */}
+    <section className="py-20 px-6" id="features">
+      <div className="max-w-7xl mx-auto">
         <motion.div 
-          className="text-center mb-24"
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
+          className="text-center mb-16 space-y-4"
         >
-          <h2 className="text-6xl font-bold mb-6 bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
-            Powerful Features
+          <h2 className="text-4xl font-bold">
+            <span className="bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">
+              Powerful Features
+            </span>
           </h2>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Experience the next generation of team collaboration with our cutting-edge features
+            Everything you need to build and collaborate with your team using AI assistance
           </p>
         </motion.div>
 
-        {/* Features Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, index) => (
             <motion.div
               key={index}
-              custom={index}
-              variants={cardVariants}
-              initial="hidden"
-              whileInView="visible"
-              viewport={{ once: true, margin: "-50px" }}
-              className={`group relative overflow-hidden p-8 rounded-3xl backdrop-blur-xl 
-                bg-gradient-to-br ${feature.gradient} border border-gray-800/50 
-                hover:border-gray-700/50 transition-all duration-500`}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              whileHover={{ y: -5 }}
+              transition={{ delay: index * 0.1 }}
+              className="p-6 rounded-xl bg-gray-800/50 backdrop-blur-sm border border-gray-700/50 hover:border-gray-600/50 transition-all"
             >
-              {/* Background Glow Effect */}
-              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                <div className={`absolute inset-0 bg-gradient-to-br ${feature.gradient} blur-3xl scale-150 opacity-20`} />
+              <div className={`text-4xl mb-4 w-12 h-12 rounded-lg flex items-center justify-center bg-gradient-to-r ${feature.gradient} bg-opacity-20`}>
+                {feature.icon}
               </div>
-
-              <div className="relative flex flex-col h-full space-y-6">
-                <motion.div 
-                  className="bg-gray-900/50 p-4 rounded-2xl w-fit group-hover:bg-gray-900/70 
-                    transition-colors duration-300 relative overflow-hidden"
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
-                >
-                  {feature.icon}
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent 
-                    translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />
-                </motion.div>
-                
-                <h3 className="text-2xl font-semibold text-white group-hover:text-gray-200 transition-colors">
-                  {feature.title}
-                </h3>
-                
-                <p className="text-gray-400 text-lg leading-relaxed group-hover:text-gray-300 transition-colors">
-                  {feature.description}
-                </p>
-
-                <motion.div 
-                  className="mt-auto flex items-center text-gray-300 group-hover:text-white cursor-pointer"
-                  whileHover={{ x: 5 }}
-                >
-                  Learn more 
-                  <svg 
-                    className="w-5 h-5 ml-2 transition-transform duration-300 group-hover:translate-x-1" 
-                    fill="none" 
-                    stroke="currentColor" 
-                    viewBox="0 0 24 24"
-                  >
-                    <path 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round" 
-                      strokeWidth={2} 
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </motion.div>
-              </div>
+              <h3 className="text-xl font-semibold mb-3 bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
+                {feature.title}
+              </h3>
+              <p className="text-gray-400 leading-relaxed">
+                {feature.description}
+              </p>
             </motion.div>
           ))}
         </div>
       </div>
     </section>
   );
-}
+};
 
 export default Features;
