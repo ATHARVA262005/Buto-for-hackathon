@@ -28,6 +28,8 @@ import Checkout from "./screens/Checkout";
 import Trade from "./screens/Trade";
 import Transactions from "./screens/Transactions";
 import ClaimNFT from "./screens/ClaimNFT";
+import ExplorePage from './screens/ExplorePage';
+import PromptPage from './screens/PromptPage';
 
 function NavLink({ to, children, icon, collapsed, notificationCount }) {
   const location = useLocation();
@@ -268,6 +270,8 @@ function App() {
             <Route path="/trade" element={<Trade />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/claim-nft" element={<ClaimNFT />} />
+            <Route path="/explore" element={<ExplorePage />} />
+            <Route path="/prompt/:id" element={<PromptPage />} />
           </Routes>
         </main>
       </div>
