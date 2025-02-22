@@ -177,6 +177,67 @@ router.post('/:id/vote', async (req, res) => {
   }
 });
 
+// Move leaderboard route BEFORE any parameterized routes
+router.get('/leaderboard', async (req, res) => {
+  try {
+    console.log('Fetching leaderboard...');
+    // Get all prompts with at least 1 vote
+    const prompts = await Prompt.find({ votes: { $gte: 1 } });
+    
+    console.log(`Found ${prompts.length} prompts with votes`);
+    
+    if (!prompts || prompts.length === 0) {
+      console.log('No prompts found, returning empty array');
+      return res.json([]);
+    }
+    
+    // Calculate score based on votes and time
+    const rankedPrompts = prompts.map(prompt => {
+      const ageInHours = (Date.now() - new Date(prompt.createdAt)) / (1000 * 60 * 60);
+      const score = (prompt.votes) / Math.pow(ageInHours + 2, 1.5);
+      
+      return {
+        _id: prompt._id,
+        prompt: prompt.prompt,
+        subject: prompt.subject,
+        problemStatement: prompt.problemStatement,
+        votes: prompt.votes,
+        createdAt: prompt.createdAt,
+        walletAddress: prompt.walletAddress,
+        score
+      };
+    });
+
+    // Sort by score
+    rankedPrompts.sort((a, b) => b.score - a.score);
+
+    // Add ranks
+    const rankedResults = rankedPrompts.map((prompt, index) => ({
+      ...prompt,
+      rank: index + 1
+    }));
+
+    console.log(`Returning ${rankedResults.length} ranked prompts`);
+    res.json(rankedResults);
+  } catch (error) {
+    console.error('Leaderboard error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Add new endpoint for participant count
+router.get('/participant-count', async (req, res) => {
+  try {
+    // Count unique wallet addresses
+    const uniqueWallets = await Prompt.distinct('walletAddress');
+    res.json({ count: uniqueWallets.length });
+  } catch (error) {
+    console.error('Error getting participant count:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Then add all other routes
 router.get('/:id/vote-status', async (req, res) => {
   try {
     const { walletAddress } = req.query;
