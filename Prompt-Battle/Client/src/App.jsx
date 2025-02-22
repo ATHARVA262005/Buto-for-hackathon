@@ -1,18 +1,3 @@
-<<<<<<< HEAD
-import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Link, useLocation } from 'react-router-dom';
-import { FaHome, FaPlusCircle, FaChartBar, FaWallet, FaBars, FaAngleDoubleLeft, FaAngleDoubleRight, FaStore, FaExchangeAlt, FaHistory, FaMedal } from 'react-icons/fa';
-import Dashboard from './screens/Dashboard';
-import SubmitPrompt from './screens/SubmitPrompt.jsx';
-import Home from './screens/Home';
-import Marketplace from './screens/Marketplace';
-import Checkout from './screens/Checkout';
-import Trade from './screens/Trade';
-import Transactions from './screens/Transactions';
-import ClaimNFT from './screens/ClaimNFT';
-import ExplorePage from './screens/ExplorePage';
-import PromptPage from './screens/PromptPage';
-=======
 import React, { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
@@ -43,7 +28,8 @@ import Checkout from "./screens/Checkout";
 import Trade from "./screens/Trade";
 import Transactions from "./screens/Transactions";
 import ClaimNFT from "./screens/ClaimNFT";
->>>>>>> 2b712241c7a3118fb73f49172005790d2d47d636
+import ExplorePage from './screens/ExplorePage';
+import PromptPage from './screens/PromptPage';
 
 function NavLink({ to, children, icon, collapsed, notificationCount }) {
   const location = useLocation();
