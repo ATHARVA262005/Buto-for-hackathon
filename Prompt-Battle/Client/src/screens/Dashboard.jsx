@@ -16,6 +16,7 @@ import {
   FaDownload,
   FaCheckCircle,
 } from "react-icons/fa";
+import NFTCard from '../components/NFTCard';
 
 const WalletDetails = () => {
   const [walletInfo, setWalletInfo] = useState({
@@ -291,13 +292,13 @@ const WalletDetails = () => {
   );
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-white">Wallet Details</h2>
-        <FaWallet className="text-blue-500 h-5 w-5" />
+    <div className="p-4 space-y-3"> {/* Reduced padding and spacing */}
+      <div className="flex items-center justify-between mb-2"> {/* Reduced margin */}
+        <h2 className="text-lg font-bold text-white">Wallet Details</h2> {/* Smaller text */}
+        <FaWallet className="text-blue-500 h-4 w-4" /> {/* Smaller icon */}
       </div>
 
-      <div className="bg-gray-700/50 rounded-lg p-6 space-y-6">
+      <div className="bg-gray-700/50 rounded-lg p-4 space-y-4"> {/* Reduced padding and spacing */}
         {!walletInfo.address ? (
           <ConnectWalletButton />
         ) : (
@@ -357,408 +358,158 @@ const WalletDetails = () => {
 
       {showReceiveModal && <ReceiveModal />}
       {showSendModal && <SendModal onClose={() => setShowSendModal(false)} />}
-
-      <div className="bg-gray-700/50 rounded-lg p-6">
-        <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-        {walletInfo.transactions.length === 0 ? (
-          <div className="text-center text-gray-400 py-4">
-            No recent transactions
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {walletInfo.transactions.map((tx, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-800 rounded-lg"
-              >
-                {/* Transaction details would go here */}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   );
 };
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [currentNFTIndex, setCurrentNFTIndex] = useState(0);
-  const [currentParticipationIndex, setCurrentParticipationIndex] = useState(0);
-  const [showAllParticipations, setShowAllParticipations] = useState(false);
-
-  const [prompts, setPrompts] = useState([]);
-  const [leaderboard] = useState([
-    {
-      name: "Alex Chen",
-      score: 2847,
-      prompts: 32,
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Alex",
-      badge: "Champion Creator",
-    },
-    {
-      name: "Sarah Smith",
-      score: 2456,
-      prompts: 28,
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sarah",
-      badge: "Elite Prompter",
-    },
-    {
-      name: "Mike Johnson",
-      score: 2123,
-      prompts: 25,
-      avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
-      badge: "Rising Star",
-    },
-  ]);
   const [userStats, setUserStats] = useState({
     totalPrompts: 42,
     totalVotes: 156,
     nftsMinted: 8,
     ranking: 15,
   });
-  const [recentParticipations] = useState([
+  const [recentNFTs] = useState([
     {
-      eventName: "AI Prompt Challenge #24",
-      date: "2024-02-15",
-      position: "3rd",
-      reward: "Bronze NFT",
-      votes: 156,
+      prompt: "I want an AI system that can automatically review code, identify potential bugs, and suggest improvements while following best practices.",
+      metadata: {
+        subject: "Programming Challenge",
+        problemStatement: "Create an AI-powered code review assistant",
+      },
+      rank: 1,
+      votes: 156
     },
     {
-      eventName: "Weekly Prompt Battle",
-      date: "2024-02-10",
-      position: "5th",
-      reward: "Participation NFT",
-      votes: 142,
+      prompt: "I want an AI system that can automatically review code, identify potential bugs, and suggest improvements while following best practices.",
+      metadata: {
+        subject: "AI Development",
+        problemStatement: "Design a natural language processing system",
+      },
+      rank: 2,
+      votes: 142
     },
     {
-      eventName: "Creative Prompt Contest",
-      date: "2024-02-05",
-      position: "1st",
-      reward: "Gold NFT",
-      votes: 289,
-    },
+      prompt: "I want an AI system that can automatically review code, identify potential bugs, and suggest improvements while following best practices.",
+      metadata: {
+        subject: "Web3 Integration",
+        problemStatement: "Build a decentralized voting system",
+      },
+      rank: 3,
+      votes: 128
+    }
   ]);
 
-  const nfts = [
-    { id: 1, title: "NFT #1" },
-    { id: 2, title: "NFT #2" },
-    { id: 3, title: "NFT #3" },
-    { id: 4, title: "NFT #4" },
-    { id: 5, title: "NFT #5" },
-    { id: 6, title: "NFT #6" },
-  ];
-
-  const [currentPage, setCurrentPage] = useState(0);
-  const nftsPerPage = 3;
-  const totalPages = Math.ceil(nfts.length / nftsPerPage);
-
-  const getCurrentNFTs = () => {
-    const start = currentPage * nftsPerPage;
-    return nfts.slice(start, start + nftsPerPage);
-  };
-
-  const handleNextPage = () => {
-    if (currentPage < totalPages - 1) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const handlePrevPage = () => {
-    if (currentPage > 0) {
-      setCurrentPage(currentPage - 1);
-    }
-  };
-
-  const handleNextNFT = () => {
-    setCurrentNFTIndex((prev) => (prev + 1) % nfts.length);
-  };
-
-  const handlePrevNFT = () => {
-    setCurrentNFTIndex((prev) => (prev - 1 + nfts.length) % nfts.length);
-  };
-
-  const renderParticipationCard = (participation) => (
-    <div className="bg-gray-700 rounded-lg p-4">
-      <div className="flex justify-between items-start">
-        <div>
-          <h3 className="font-semibold text-white">
-            {participation.eventName}
-          </h3>
-          <p className="text-sm text-gray-400">{participation.date}</p>
-        </div>
-        <div className="text-right">
-          <div
-            className={`px-3 py-1 rounded-full text-sm mb-1
-            ${
-              participation.position === "1st"
-                ? "bg-yellow-900/30 text-yellow-300"
-                : participation.position === "2nd"
-                ? "bg-gray-400/30 text-gray-300"
-                : participation.position === "3rd"
-                ? "bg-yellow-700/30 text-yellow-600"
-                : "bg-blue-900/30 text-blue-400"
-            }`}
-          >
-            {participation.position}
-          </div>
-          <div className="text-xs text-gray-400">
-            {participation.votes} votes
-          </div>
-        </div>
-      </div>
-      <div className="mt-2">
-        <span className="text-sm bg-purple-900/30 text-purple-300 px-2 py-1 rounded">
-          {participation.reward}
-        </span>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="h-full bg-gray-900 text-white overflow-hidden">
-      <div className="h-full flex flex-col">
-        {/* Back Button and Header */}
-        <div className="shrink-0 px-6 py-4">
-          <button
-            onClick={() => navigate("/")}
-            className="flex items-center space-x-2 text-gray-400 hover:text-white transition-colors duration-200"
-          >
-            <FaArrowLeft />
-            <span>Back to Home</span>
-          </button>
-        </div>
+    <div className="min-h-screen bg-gray-900 text-white">
+      {/* Header */}
+      <div className="p-4 border-b border-gray-800"> {/* Reduced padding */}
+        <button
+          onClick={() => navigate("/")}
+          className="flex items-center space-x-1 text-gray-400 hover:text-white transition-colors"
+        >
+          <FaArrowLeft size={14} /> {/* Smaller icon */}
+          <span className="text-sm">Back to Home</span> {/* Smaller text */}
+        </button>
+      </div>
 
-        {/* Stats Cards - Fixed Height */}
-        <div className="shrink-0 px-6 pb-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-3 bg-blue-900/30 rounded-full">
-                  <FaChartLine className="h-6 w-6 text-blue-500" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-400">Your Prompts</p>
-                  <h3 className="text-xl font-bold text-white">
-                    {userStats.totalPrompts}
-                  </h3>
-                </div>
-              </div>
+      {/* Stats Cards */}
+      <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3"> {/* Reduced padding and gap */}
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-blue-900/30 rounded-full">
+              <FaChartLine className="h-6 w-6 text-blue-500" />
             </div>
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-3 bg-purple-900/30 rounded-full">
-                  <FaTrophy className="h-6 w-6 text-purple-500" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-400">Total Votes</p>
-                  <h3 className="text-xl font-bold text-white">
-                    {userStats.totalVotes}
-                  </h3>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-3 bg-blue-900/30 rounded-full">
-                  <FaMedal className="h-6 w-6 text-blue-500" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-400">NFTs Minted</p>
-                  <h3 className="text-xl font-bold text-white">
-                    {userStats.nftsMinted}
-                  </h3>
-                </div>
-              </div>
-            </div>
-            <div className="bg-gray-800 rounded-lg shadow p-6">
-              <div className="flex items-center">
-                <div className="p-3 bg-purple-900/30 rounded-full">
-                  <FaFireAlt className="h-6 w-6 text-purple-500" />
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm text-gray-400">Your Ranking</p>
-                  <h3 className="text-xl font-bold text-white">
-                    #{userStats.ranking}
-                  </h3>
-                </div>
-              </div>
+            <div className="ml-4">
+              <p className="text-sm text-gray-400">Your Prompts</p>
+              <h3 className="text-xl font-bold">{userStats.totalPrompts}</h3>
             </div>
           </div>
         </div>
 
-        {/* Main Content - Flex grow with no scroll */}
-        <div className="flex-1 min-h-screen px-6 pb-4">
-          <div className="h-full grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column */}
-            <div className="lg:col-span-2 flex flex-col gap-6 h-full">
-              {/* NFT Showcase - Increased Height */}
-              <div className="h-[400px] bg-gray-800 rounded-lg shadow-lg">
-                <div className="flex justify-between items-center p-6">
-                  <h2 className="text-xl font-bold text-white">
-                    Your NFT Collection
-                  </h2>
-                  <div className="flex items-center space-x-2">
-                    <span className="text-sm text-gray-400">
-                      Page {currentPage + 1} of {totalPages}
-                    </span>
-                  </div>
-                </div>
-                <div className="relative flex h-[300px]">
-                  <button
-                    onClick={handlePrevPage}
-                    disabled={currentPage === 0}
-                    className={`w-12 h-full flex items-center justify-center transition-colors
-                      ${
-                        currentPage === 0
-                          ? "text-gray-600 cursor-not-allowed"
-                          : "text-gray-400 hover:text-white hover:bg-gray-700/50"
-                      }`}
-                  >
-                    <FaChevronLeft className="h-8 w-8" />
-                  </button>
-
-                  <div className="flex-1 grid grid-cols-3 gap-4 px-4">
-                    {getCurrentNFTs().map((nft) => (
-                      <motion.div
-                        key={nft.id}
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        exit={{ opacity: 0, x: -20 }}
-                        className="aspect-square rounded-lg bg-gray-700 p-2"
-                      >
-                        <div className="w-full h-full rounded-lg bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
-                          <span className="text-white font-bold">
-                            {nft.title}
-                          </span>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </div>
-
-                  <button
-                    onClick={handleNextPage}
-                    disabled={currentPage === totalPages - 1}
-                    className={`w-12 h-full flex items-center justify-center transition-colors
-                      ${
-                        currentPage === totalPages - 1
-                          ? "text-gray-600 cursor-not-allowed"
-                          : "text-gray-400 hover:text-white hover:bg-gray-700/50"
-                      }`}
-                  >
-                    <FaChevronRight className="h-8 w-8" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Recent Participations - Remaining Height */}
-              <div className="flex-4 bg-gray-800 rounded-lg shadow-lg p-10">
-                <div className="flex justify-between items-center mb-4">
-                  <h2 className="text-xl font-bold text-white">
-                    Recent Participations
-                  </h2>
-                  <button
-                    onClick={() => setShowAllParticipations(true)}
-                    className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                  >
-                    View All
-                  </button>
-                </div>
-                {/* Show only most recent participation */}
-                {recentParticipations.length > 0 &&
-                  renderParticipationCard(recentParticipations[0])}
-              </div>
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-purple-900/30 rounded-full">
+              <FaTrophy className="h-6 w-6 text-purple-500" />
             </div>
+            <div className="ml-4">
+              <p className="text-sm text-gray-400">Total Votes</p>
+              <h3 className="text-xl font-bold">{userStats.totalVotes}</h3>
+            </div>
+          </div>
+        </div>
 
-            {/* Right Column */}
-            <div className="flex flex-col gap-6 h-full">
-              {/* Top Creators - Flex grow */}
-              <div className="flex-1 bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-                <WalletDetails />
-              </div>
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-blue-900/30 rounded-full">
+              <FaMedal className="h-6 w-6 text-blue-500" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm text-gray-400">NFTs Minted</p>
+              <h3 className="text-xl font-bold">{userStats.nftsMinted}</h3>
+            </div>
+          </div>
+        </div>
 
-              {/* Upcoming Events - Fixed Height */}
-              <div className="h-[200px] bg-gray-800 rounded-lg shadow-lg p-6">
-                <h2 className="text-xl font-bold mb-4 text-white">
-                  Upcoming Events
-                </h2>
-                <div className="space-y-3">
-                  <div className="border-l-4 border-blue-500 pl-4">
-                    <h3 className="font-semibold text-white">
-                      Weekly Prompt Battle
-                    </h3>
-                    <p className="text-sm text-gray-400">Starts in 2 days</p>
-                  </div>
-                  <div className="border-l-4 border-purple-500 pl-4">
-                    <h3 className="font-semibold text-white">
-                      AI Art Challenge
-                    </h3>
-                    <p className="text-sm text-gray-400">Starts in 5 days</p>
-                  </div>
-                </div>
-              </div>
+        <div className="bg-gray-800 rounded-lg p-6">
+          <div className="flex items-center">
+            <div className="p-3 bg-purple-900/30 rounded-full">
+              <FaFireAlt className="h-6 w-6 text-purple-500" />
+            </div>
+            <div className="ml-4">
+              <p className="text-sm text-gray-400">Your Ranking</p>
+              <h3 className="text-xl font-bold">#{userStats.ranking}</h3>
             </div>
           </div>
         </div>
       </div>
 
-      {/* All Participations Modal with Vignette */}
-      {showAllParticipations && (
-        <>
-          <div className="fixed inset-0 backdrop-blur-sm bg-gray-900/10 z-50" />
-          <div className="fixed inset-0 z-50 vignette-overlay" />
-          <div className="fixed inset-0 flex items-center justify-center p-4 z-50">
-            <div className="bg-gray-800/90 backdrop-blur-md rounded-lg w-full max-w-3xl max-h-[80vh] overflow-hidden border border-gray-700/50 shadow-xl">
-              <div className="p-6 border-b border-gray-700/50 flex justify-between items-center">
-                <h2 className="text-xl font-bold">All Participations</h2>
-                <button
-                  onClick={() => setShowAllParticipations(false)}
-                  className="p-2 hover:bg-gray-700/50 rounded-full transition-colors"
-                >
-                  <FaTimes />
-                </button>
+      {/* Main Content */}
+      <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-3"> {/* Reduced padding and gap */}
+        {/* Left Column - Recent NFTs */}
+        <div className="lg:col-span-2">
+          <div className="bg-gray-800 rounded-lg p-4"> {/* Reduced padding */}
+            <h2 className="text-lg font-bold mb-3 flex items-center gap-2"> {/* Smaller text and margin */}
+              <FaMedal className="text-purple-500" size={16} /> {/* Smaller icon */}
+              Recent NFTs
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3"> {/* Changed to 3 columns */}
+              {recentNFTs.map((nft, index) => (
+                <NFTCard
+                  key={index}
+                  {...nft}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Wallet and Events */}
+        <div className="space-y-3"> {/* Reduced spacing */}
+          {/* Wallet Section */}
+          <div className="bg-gray-800 rounded-lg">
+            <WalletDetails />
+          </div>
+
+          {/* Compact Upcoming Event Section */}
+          <div className="bg-gray-800 rounded-lg p-3"> {/* Reduced padding */}
+            <h2 className="text-base font-bold mb-2 flex items-center gap-2"> {/* Smaller text and margin */}
+              <FaChartLine className="text-purple-500" size={14} /> {/* Smaller icon */}
+              Next Events
+            </h2>
+            <div className="space-y-2"> {/* Added container with spacing */}
+              <div className="border-l-4 border-blue-500 pl-2 py-1"> {/* Reduced padding */}
+                <h3 className="font-semibold text-sm">Weekly Prompt Battle</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Starts in 2 days</p> {/* Smaller text and margin */}
               </div>
-              <div className="p-6 overflow-y-auto max-h-[calc(80vh-120px)]">
-                <div className="space-y-4">
-                  {recentParticipations.map((participation, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      {renderParticipationCard(participation)}
-                    </motion.div>
-                  ))}
-                </div>
+              <div className="border-l-4 border-purple-500 pl-2 py-1">
+                <h3 className="font-semibold text-sm">AI Challenge</h3>
+                <p className="text-xs text-gray-400 mt-0.5">Starts in 4 days</p>
               </div>
             </div>
           </div>
-        </>
-      )}
-
-      <style jsx>{`
-        .scrollbar-thin::-webkit-scrollbar {
-          width: 6px;
-        }
-        .scrollbar-thin::-webkit-scrollbar-track {
-          background: transparent;
-        }
-        .scrollbar-thin::-webkit-scrollbar-thumb {
-          background-color: rgb(75, 85, 99);
-          border-radius: 3px;
-        }
-        .vignette-overlay {
-          background: radial-gradient(
-            circle at center,
-            transparent 30%,
-            rgba(0, 0, 0, 0.4) 80%,
-            rgba(0, 0, 0, 0.6) 100%
-          );
-          pointer-events: none;
-        }
-      `}</style>
+        </div>
+      </div>
     </div>
   );
 };
