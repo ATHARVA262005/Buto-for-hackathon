@@ -21,9 +21,13 @@ const promptSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
-    votedBy: [{
+    votedByWallets: [{
         type: String
-    }]
+    }],
+    walletAddress: {
+        type: String,
+        required: true
+    }
 }, {
     timestamps: true
 });

@@ -73,24 +73,55 @@ router.post('/generate', async (req, res) => {
 
 router.post('/submit', async (req, res) => {
     try {
-        const { prompt, generatedOutput, subject, problemStatement } = req.body;
+        const { prompt, generatedOutput, subject, problemStatement, walletAddress } = req.body;
+        
+        console.log('Received submission request:', {
+            prompt: prompt.substring(0, 50) + '...',
+            subject,
+            problemStatement: problemStatement.substring(0, 50) + '...',
+            walletAddress
+        });
+
+        if (!walletAddress) {
+            console.log('Missing wallet address in submission');
+            return res.status(400).json({ error: 'Wallet address is required' });
+        }
+
         const newPrompt = new Prompt({
             prompt,
             generatedOutput,
             subject,
-            problemStatement
+            problemStatement,
+            walletAddress,
+            votes: 0,
+            votedBy: [],
+            votedByWallets: [] // Add this field
         });
+        
+        console.log('Saving prompt with wallet:', walletAddress);
         await newPrompt.save();
+        console.log('Prompt saved successfully');
+        
         res.json({ message: 'Prompt submitted successfully', prompt: newPrompt });
     } catch (error) {
+        console.error('Submission error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
 router.post('/:id/vote', async (req, res) => {
   try {
-    const { userId } = req.body;
+    let { walletAddress } = req.body;
     const promptId = req.params.id;
+
+    // Ensure walletAddress is a string and properly formatted
+    if (typeof walletAddress === 'object' && walletAddress.address) {
+      walletAddress = walletAddress.address;
+    }
+
+    if (!walletAddress || typeof walletAddress !== 'string') {
+      return res.status(400).json({ error: 'Valid wallet address is required' });
+    }
 
     const prompt = await Prompt.findById(promptId);
     
@@ -98,15 +129,27 @@ router.post('/:id/vote', async (req, res) => {
       return res.status(404).json({ error: 'Prompt not found' });
     }
 
-    // Check if user already voted
-    if (prompt.votedBy.includes(userId)) {
-      return res.status(400).json({ error: 'Already voted', votes: prompt.votes });
+    const hasVoted = prompt.votedByWallets.includes(walletAddress);
+
+    if (hasVoted) {
+      // Remove vote
+      prompt.votes = Math.max(0, prompt.votes - 1);
+      prompt.votedByWallets = prompt.votedByWallets.filter(w => w !== walletAddress);
+    } else {
+      // Add vote
+      prompt.votes += 1;
+      prompt.votedByWallets.push(walletAddress);
     }
 
-    // Update votes
-    prompt.votes += 1;
-    prompt.votedBy.push(userId);
-    await prompt.save();
+    // Use findByIdAndUpdate instead of save() to avoid validation issues
+    const updatedPrompt = await Prompt.findByIdAndUpdate(
+      promptId,
+      { 
+        votes: prompt.votes,
+        votedByWallets: prompt.votedByWallets
+      },
+      { new: true }
+    );
 
     // Broadcast to WebSocket clients
     const wss = req.app.locals.wss;
@@ -116,13 +159,18 @@ router.post('/:id/vote', async (req, res) => {
           client.send(JSON.stringify({
             type: 'VOTE_UPDATE',
             promptId,
-            votes: prompt.votes
+            votes: updatedPrompt.votes,
+            votedByWallets: updatedPrompt.votedByWallets
           }));
         }
       });
     }
 
-    res.json({ success: true, votes: prompt.votes });
+    res.json({ 
+      success: true, 
+      votes: updatedPrompt.votes,
+      hasVoted: !hasVoted 
+    });
   } catch (error) {
     console.error('Vote error:', error);
     res.status(500).json({ error: error.message });
@@ -131,7 +179,7 @@ router.post('/:id/vote', async (req, res) => {
 
 router.get('/:id/vote-status', async (req, res) => {
   try {
-    const { userId } = req.query;
+    const { walletAddress } = req.query;
     const prompt = await Prompt.findById(req.params.id);
     
     if (!prompt) {
@@ -139,7 +187,7 @@ router.get('/:id/vote-status', async (req, res) => {
     }
 
     res.json({
-      hasVoted: prompt.votedBy.includes(userId),
+      hasVoted: prompt.votedByWallets.includes(walletAddress),
       votes: prompt.votes
     });
   } catch (error) {
