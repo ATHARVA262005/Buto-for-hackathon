@@ -19,17 +19,12 @@ const io = new Server(server, {
     },
     pingTimeout: 60000,
     pingInterval: 25000,
-    transports: ['websocket'],
-    connectionStateRecovery: {
-        maxDisconnectionDuration: 2 * 60 * 1000,
-        skipMiddlewares: true,
-    }
+    transports: ['websocket']
 });
 
-// Track connected users with project information
-const connectedUsers = new Map();
+// Track connected users and rooms
+const projectRooms = new Map();
 
-// Authenticate socket connection
 io.use(async (socket, next) => {
     try {
         const token = socket.handshake.auth?.token;
@@ -46,100 +41,80 @@ io.use(async (socket, next) => {
             return next(new Error("No token provided"));
         }
 
-        try {
-            const decoded = jwt.verify(cleanToken, process.env.SECRET_KEY);
-            
-            // Find user by email instead of userId
-            const user = await UserModel.findOne({ email: decoded.email });
-            if (!user) {
-                console.error(`User not found with email: ${decoded.email}`);
-                return next(new Error("User not found"));
-            }
-
-            // Find project and check if user's email is in users array
-            const project = await projectModel.findById(projectId).populate('users');
-            if (!project) {
-                return next(new Error("Project not found"));
-            }
-
-            // Check if user's email is in project's users array
-            const isCollaborator = project.users.some(u => u.email === user.email);
-
-            if (!isCollaborator) {
-                console.log(`Access denied for ${user.email} to project ${projectId}`);
-                return next(new Error("Not authorized for this project"));
-            }
-
-            // Attach validated user and project to socket
-            socket.user = {
-                _id: user._id,
-                email: user.email,
-                name: user.name
-            };
-            socket.project = project;
-
-            console.log(`Access granted for ${user.email} to project ${projectId}`);
-            next();
-        } catch (jwtError) {
-            console.error("JWT Verification failed:", jwtError);
-            return next(new Error("Invalid token"));
+        const decoded = jwt.verify(cleanToken, process.env.SECRET_KEY);
+        
+        // Find user by email
+        const user = await UserModel.findOne({ email: decoded.email });
+        if (!user) {
+            return next(new Error("User not found"));
         }
+
+        // Find project and check membership
+        const project = await projectModel.findById(projectId).populate('users');
+        if (!project) {
+            return next(new Error("Project not found"));
+        }
+
+        // Check if user is a collaborator
+        const isCollaborator = project.users.some(u => u.email === user.email);
+        if (!isCollaborator) {
+            return next(new Error("Not authorized for this project"));
+        }
+
+        // Setup socket data
+        socket.user = { _id: user._id, email: user.email, name: user.name };
+        socket.project = project;
+        socket.roomId = `project_${projectId}`;
+
+        // Track room membership
+        if (!projectRooms.has(socket.roomId)) {
+            projectRooms.set(socket.roomId, new Set());
+        }
+
+        next();
     } catch (error) {
-        console.error("Socket authentication error:", error);
-        return next(new Error(error.message || "Server Error"));
+        return next(new Error(error.message || "Authentication Error"));
     }
 });
 
 io.on('connection', socket => {
-    const projectRoomId = `project_${socket.project._id.toString()}`;
-    socket.roomId = projectRoomId;
-    
-    // Join the room
-    socket.join(projectRoomId);
-    console.log(`User ${socket.user.email} joined room ${projectRoomId}`);
+    // Add user to room
+    const roomMembers = projectRooms.get(socket.roomId);
+    roomMembers.add(socket.user.email);
+    socket.join(socket.roomId);
 
-    // Get all active users in this room
-    const roomSockets = io.sockets.adapter.rooms.get(projectRoomId);
-    const activeUsers = Array.from(roomSockets || []).map(socketId => {
-        const userSocket = io.sockets.sockets.get(socketId);
-        return userSocket?.user?.email;
-    }).filter(Boolean);
-
-    // Broadcast to all in room including sender
-    io.in(projectRoomId).emit('active-users', {
-        users: [...new Set(activeUsers)], // Remove duplicates
-        count: activeUsers.length
+    // Broadcast active users
+    io.to(socket.roomId).emit('active-users', {
+        users: Array.from(roomMembers),
+        count: roomMembers.size
     });
 
     socket.on("project-message", async data => {
         try {
             const message = data.message;
             const aiIsPresentInMessage = message.toLowerCase().includes("@ai");
-            let savedMessage;
 
             if (aiIsPresentInMessage) {
-                // Save and broadcast the user's prompt first
-                savedMessage = await messageService.saveMessage({
+                // Save and broadcast prompt
+                const savedPrompt = await messageService.saveMessage({
                     projectId: socket.project._id,
                     sender: socket.user.email,
                     message: message,
                     isAiTargeted: true
                 });
 
-                // Broadcast prompt to everyone in room
-                io.in(projectRoomId).emit('project-message', {
-                    _id: savedMessage._id,
+                io.to(socket.roomId).emit('project-message', {
+                    _id: savedPrompt._id,
                     message: message,
                     sender: socket.user.email,
                     isAiTargeted: true,
-                    timestamp: new Date().getTime()
+                    timestamp: Date.now()
                 });
 
-                // Generate AI response
+                // Generate and broadcast AI response
                 const prompt = message.replace("@ai", "").trim();
                 const result = await generateResult(prompt, socket.project._id);
                 
-                // Save AI response
                 const aiResponse = await messageService.saveMessage({
                     projectId: socket.project._id,
                     sender: "BUTO AI",
@@ -151,8 +126,7 @@ io.on('connection', socket => {
                     isAiResponse: true
                 });
 
-                // Broadcast AI response to everyone
-                io.in(projectRoomId).emit('project-message', {
+                io.to(socket.roomId).emit('project-message', {
                     _id: aiResponse._id,
                     message: result,
                     sender: "BUTO AI",
@@ -161,23 +135,21 @@ io.on('connection', socket => {
                     files: result.files || {},
                     buildSteps: result.buildSteps || [],
                     runCommands: result.runCommands || [],
-                    timestamp: new Date().getTime()
+                    timestamp: Date.now()
                 });
-
             } else {
                 // Handle regular chat messages
-                savedMessage = await messageService.saveMessage({
+                const savedMessage = await messageService.saveMessage({
                     projectId: socket.project._id,
                     sender: socket.user.email,
                     message: message
                 });
 
-                // Only broadcast to others in the room, not back to sender
-                socket.broadcast.to(projectRoomId).emit('project-message', {
+                socket.broadcast.to(socket.roomId).emit('project-message', {
                     _id: savedMessage._id,
                     message: message,
                     sender: socket.user.email,
-                    timestamp: new Date().getTime()
+                    timestamp: Date.now()
                 });
             }
         } catch (error) {
@@ -186,21 +158,22 @@ io.on('connection', socket => {
         }
     });
 
-    socket.on('disconnect', (reason) => {
-        console.log(`Client disconnected | User: ${socket.user.email} | Room: ${projectRoomId} | Reason: ${reason}`);
-        
-        // Remove user from tracking
-        connectedUsers.delete(socket.userKey);
-
-        // Get updated room users
-        const remainingUsers = Array.from(connectedUsers.entries())
-            .filter(([key]) => key.endsWith(socket.project._id.toString()))
-            .map(([key]) => key.split(':')[0]);
-
-        io.to(projectRoomId).emit('active-users', {
-            users: remainingUsers,
-            count: remainingUsers.length
-        });
+    socket.on('disconnect', () => {
+        // Remove user from room tracking
+        const roomMembers = projectRooms.get(socket.roomId);
+        if (roomMembers) {
+            roomMembers.delete(socket.user.email);
+            
+            // Update room members or cleanup empty room
+            if (roomMembers.size === 0) {
+                projectRooms.delete(socket.roomId);
+            } else {
+                io.to(socket.roomId).emit('active-users', {
+                    users: Array.from(roomMembers),
+                    count: roomMembers.size
+                });
+            }
+        }
     });
 });
 
