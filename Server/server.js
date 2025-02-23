@@ -16,75 +16,132 @@ const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
         origin: '*',
+    },
+    pingTimeout: 60000,
+    pingInterval: 25000,
+    transports: ['websocket'],
+    connectionStateRecovery: {
+        maxDisconnectionDuration: 2 * 60 * 1000,
+        skipMiddlewares: true,
     }
 });
+
+// Track connected users with project information
+const connectedUsers = new Map();
 
 // Authenticate socket connection
 io.use(async (socket, next) => {
     try {
-        const token = socket.handshake.auth?.token || socket.handshake.headers.authorization?.split(' ')[1];
+        const token = socket.handshake.auth?.token;
         const projectId = socket.handshake.query.projectId;
 
         if (!mongoose.Types.ObjectId.isValid(projectId)) {
             return next(new Error("Invalid project ID"));
         }
 
-        socket.project = await projectModel.findById(projectId);
-        if (!socket.project) {
-            return next(new Error("Project not found"));
+        // Clean up token if it starts with 'Bearer '
+        const cleanToken = token?.startsWith('Bearer ') ? token.slice(7) : token;
+
+        if (!cleanToken) {
+            return next(new Error("No token provided"));
         }
 
-        if (!token) {
-            return next(new Error("Authentication Error"));
-        }
+        try {
+            const decoded = jwt.verify(cleanToken, process.env.SECRET_KEY);
+            
+            // Find user by email instead of userId
+            const user = await UserModel.findOne({ email: decoded.email });
+            if (!user) {
+                console.error(`User not found with email: ${decoded.email}`);
+                return next(new Error("User not found"));
+            }
 
-        const decoded = jwt.verify(token, process.env.SECRET_KEY);
-        if (!decoded) {
+            // Find project and check if user's email is in users array
+            const project = await projectModel.findById(projectId).populate('users');
+            if (!project) {
+                return next(new Error("Project not found"));
+            }
+
+            // Check if user's email is in project's users array
+            const isCollaborator = project.users.some(u => u.email === user.email);
+
+            if (!isCollaborator) {
+                console.log(`Access denied for ${user.email} to project ${projectId}`);
+                return next(new Error("Not authorized for this project"));
+            }
+
+            // Attach validated user and project to socket
+            socket.user = {
+                _id: user._id,
+                email: user.email,
+                name: user.name
+            };
+            socket.project = project;
+
+            console.log(`Access granted for ${user.email} to project ${projectId}`);
+            next();
+        } catch (jwtError) {
+            console.error("JWT Verification failed:", jwtError);
             return next(new Error("Invalid token"));
         }
-
-        socket.user = decoded;
-        next();
     } catch (error) {
-        console.error(error);
-        return next(new Error("Server Error"));
+        console.error("Socket authentication error:", error);
+        return next(new Error(error.message || "Server Error"));
     }
 });
 
 io.on('connection', socket => {
-    socket.roomId = socket.project._id.toString();
-    console.log(`New client connected | User: ${socket.user.email} | Room: ${socket.roomId}`);
-    socket.join(socket.roomId);
+    const projectRoomId = `project_${socket.project._id.toString()}`;
+    socket.roomId = projectRoomId;
+    
+    // Join the room
+    socket.join(projectRoomId);
+    console.log(`User ${socket.user.email} joined room ${projectRoomId}`);
 
-    // Notify room about new user
-    socket.to(socket.roomId).emit('user-joined', {
-        email: socket.user.email,
-        timestamp: new Date().getTime()
+    // Get all active users in this room
+    const roomSockets = io.sockets.adapter.rooms.get(projectRoomId);
+    const activeUsers = Array.from(roomSockets || []).map(socketId => {
+        const userSocket = io.sockets.sockets.get(socketId);
+        return userSocket?.user?.email;
+    }).filter(Boolean);
+
+    // Broadcast to all in room including sender
+    io.in(projectRoomId).emit('active-users', {
+        users: [...new Set(activeUsers)], // Remove duplicates
+        count: activeUsers.length
     });
 
-    // Get number of clients in this room
-    const clients = io.sockets.adapter.rooms.get(socket.roomId);
-    const numClients = clients ? clients.size : 0;
-    console.log(`Current users in room ${socket.roomId}: ${numClients}`);
-
     socket.on("project-message", async data => {
-        const message = data.message;
-        const aiIsPresentInMessage = message.toLowerCase().includes("@ai");
+        try {
+            const message = data.message;
+            const aiIsPresentInMessage = message.toLowerCase().includes("@ai");
+            let savedMessage;
 
-        if (aiIsPresentInMessage) {
-            try {
-                // Broadcast to room that user is making an AI request
-                io.to(socket.roomId).emit('project-message', {
+            if (aiIsPresentInMessage) {
+                // Save and broadcast the user's prompt first
+                savedMessage = await messageService.saveMessage({
+                    projectId: socket.project._id,
+                    sender: socket.user.email,
+                    message: message,
+                    isAiTargeted: true
+                });
+
+                // Broadcast prompt to everyone in room
+                io.in(projectRoomId).emit('project-message', {
+                    _id: savedMessage._id,
                     message: message,
                     sender: socket.user.email,
                     isAiTargeted: true,
                     timestamp: new Date().getTime()
                 });
 
+                // Generate AI response
                 const prompt = message.replace("@ai", "").trim();
-                const result = await generateResult(prompt, socket.roomId);
-                await messageService.saveMessage({
-                    projectId: socket.roomId,
+                const result = await generateResult(prompt, socket.project._id);
+                
+                // Save AI response
+                const aiResponse = await messageService.saveMessage({
+                    projectId: socket.project._id,
                     sender: "BUTO AI",
                     message: result,
                     files: result.files || {},
@@ -94,37 +151,55 @@ io.on('connection', socket => {
                     isAiResponse: true
                 });
 
-                io.to(socket.roomId).emit('project-message', {
+                // Broadcast AI response to everyone
+                io.in(projectRoomId).emit('project-message', {
+                    _id: aiResponse._id,
                     message: result,
                     sender: "BUTO AI",
-                    prompt: prompt
+                    prompt: prompt,
+                    isAI: true,
+                    files: result.files || {},
+                    buildSteps: result.buildSteps || [],
+                    runCommands: result.runCommands || [],
+                    timestamp: new Date().getTime()
                 });
-            } catch (error) {
-                console.error('AI Error:', error);
-                io.to(socket.roomId).emit('project-message', {
-                    message: { explanation: "Error processing AI request" },
-                    sender: "BUTO AI"
+
+            } else {
+                // Handle regular chat messages
+                savedMessage = await messageService.saveMessage({
+                    projectId: socket.project._id,
+                    sender: socket.user.email,
+                    message: message
+                });
+
+                // Only broadcast to others in the room, not back to sender
+                socket.broadcast.to(projectRoomId).emit('project-message', {
+                    _id: savedMessage._id,
+                    message: message,
+                    sender: socket.user.email,
+                    timestamp: new Date().getTime()
                 });
             }
-        } else {
-            await messageService.saveMessage({
-                projectId: socket.roomId,
-                sender: socket.user.email,
-                message: data.message
-            });
-
-            socket.broadcast.to(socket.roomId).emit('project-message', {
-                message: data.message,
-                sender: socket.user.email
-            });
+        } catch (error) {
+            console.error('Message handling error:', error);
+            socket.emit('error', { message: 'Error processing message' });
         }
     });
 
-    socket.on('disconnect', () => { 
-        console.log(`Client disconnected | User: ${socket.user.email} | Room: ${socket.roomId}`);
-        socket.to(socket.roomId).emit('user-left', {
-            email: socket.user.email,
-            timestamp: new Date().getTime()
+    socket.on('disconnect', (reason) => {
+        console.log(`Client disconnected | User: ${socket.user.email} | Room: ${projectRoomId} | Reason: ${reason}`);
+        
+        // Remove user from tracking
+        connectedUsers.delete(socket.userKey);
+
+        // Get updated room users
+        const remainingUsers = Array.from(connectedUsers.entries())
+            .filter(([key]) => key.endsWith(socket.project._id.toString()))
+            .map(([key]) => key.split(':')[0]);
+
+        io.to(projectRoomId).emit('active-users', {
+            users: remainingUsers,
+            count: remainingUsers.length
         });
     });
 });
@@ -164,8 +239,6 @@ app.post("/api/reset-password", async (req, res) => {
 
     res.status(result.success ? 200 : 400).json(result);
 });
-
-
 
 server.listen(port, () => {
     console.log(`Server is running on port ${port}`);

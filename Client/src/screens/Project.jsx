@@ -71,6 +71,7 @@ const Project = () => {
   const [runCommands, setRunCommands] = useState([]);
   const [activeChat, setActiveChat] = useState("team"); // 'team' or 'ai'
   const [splitView, setSplitView] = useState(false);
+  const [activeUsers, setActiveUsers] = useState([]);
 
   const fetchProjectBookmarkedMessages = async () => {
     try {
@@ -87,16 +88,13 @@ const Project = () => {
     if (!messageText.trim()) return;
 
     try {
-      // Determine if this is an AI message based on active chat
       const isAiMessage = activeChat === "ai";
-
-      // Format message with AI prefix if needed
       const formattedMessage =
         isAiMessage && !messageText.toLowerCase().includes("@ai")
           ? `@ai ${messageText}`
           : messageText;
 
-      // Send to server first and get the saved message with ID
+      // Save message
       const savedMessage = await axios.post("/messages/save", {
         projectId,
         sender: user.email,
@@ -106,7 +104,7 @@ const Project = () => {
         timestamp: new Date().getTime(),
       });
 
-      // Add message to local state with the server-generated ID
+      // Add message to local state immediately for sender's view
       const newMessage = {
         _id: savedMessage.data._id,
         sender: user.email,
@@ -118,11 +116,11 @@ const Project = () => {
 
       setMessages((prev) => [...prev, newMessage]);
 
-      // Send through socket with the message ID
+      // Send to others via socket
       sendMessage("project-message", {
         _id: savedMessage.data._id,
         message: formattedMessage,
-        sender: user._id,
+        sender: user.email,
         projectId: projectId,
         isAiTargeted: isAiMessage,
       });
@@ -322,22 +320,21 @@ const Project = () => {
   useEffect(() => {
     const socket = initializeSocket(projectId);
 
+    // Listen for active users updates
+    socket.on('active-users', (data) => {
+        console.log('Active users updated:', data);
+        setActiveUsers(data.users);
+    });
+
     receiveMessage("project-message", (data) => {
       if (data.sender === "BUTO AI") {
-        handleAIResponse({
-          ...data,
-          _id: data._id, // Message ID is now available here
-        });
-      } else {
+        handleAIResponse(data);
+      } else if (data.sender !== user.email) { // Only add messages from others
         setMessages((prev) => [
           ...prev,
           {
             ...data,
-            _id: data._id, // Message ID is available for regular messages
-            sender: data.sender,
-            message: data.message,
             fromUser: false,
-            timestamp: data.timestamp,
           },
         ]);
       }
@@ -348,7 +345,7 @@ const Project = () => {
         socket.disconnect();
       }
     };
-  }, [projectId]);
+  }, [projectId, user.email]);
 
   useEffect(() => {
     const currentMessageBox = messageBox.current;
@@ -735,6 +732,27 @@ const Project = () => {
     }
   };
 
+  const renderAIMessages = () => {
+    let lastPrompt = null;
+    
+    return messages
+      .filter(msg => {
+        const isAIMessage = msg.sender === "BUTO AI";
+        const isPrompt = msg.isAiTargeted || (typeof msg.message === "string" && msg.message.toLowerCase().includes("@ai"));
+        
+        if (isPrompt && msg.message === lastPrompt) {
+          return false; // Skip duplicate prompts
+        }
+        
+        if (isPrompt) {
+          lastPrompt = msg.message;
+        }
+        
+        return isAIMessage || isPrompt;
+      })
+      .map((msg, index) => renderMessage(msg, index));
+  };
+
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-gray-900 text-white overflow-hidden">
       <div className="w-full lg:w-[35%] border-r border-gray-700 flex flex-col h-full">
@@ -906,15 +924,7 @@ const Project = () => {
                 height: "calc(100vh - 180px)",
               }}
             >
-              {messages
-                .filter(
-                  (msg) =>
-                    msg.isAI ||
-                    msg.isAiTargeted || // Add this condition
-                    (typeof msg.message === "string" &&
-                        msg.message.toLowerCase().includes("@ai"))
-                )
-                .map((msg, index) => renderMessage(msg, index))}
+              {renderAIMessages()}
 
               {showScrollButton && activeChat === "ai" && !splitView && (
                 <button
