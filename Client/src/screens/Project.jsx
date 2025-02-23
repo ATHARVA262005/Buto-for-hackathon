@@ -462,6 +462,8 @@ const Project = () => {
     const isAiMessage =
       typeof msg.message === "string" &&
       msg.message.toLowerCase().includes("@ai");
+    
+    const isAiRequest = isAiMessage || msg.isAiTargeted;
 
     return (
       <div
@@ -471,6 +473,8 @@ const Project = () => {
             ? "bg-blue-600 ml-auto"
             : msg.isAI
             ? "bg-purple-700"
+            : isAiRequest
+            ? "bg-purple-900/50" // Style for AI requests from any user
             : "bg-gray-800"
         } rounded-lg p-3 max-w-[80%] ${
           msg.isSystem ? "text-center mx-auto" : ""
@@ -539,7 +543,7 @@ const Project = () => {
           }`}
         >
           {/* Format AI prompts */}
-          {isAiMessage && !msg.isAI ? (
+          {isAiRequest ? (
             <div className="bg-purple-900/30 p-2 rounded-md border-l-2 border-purple-500">
               {typeof msg.message === "string"
                 ? msg.message.replace(/^@ai\s*/i, "")
@@ -623,36 +627,70 @@ const Project = () => {
         style={{ height: "calc(100vh - 72px)" }}
       >
         {fileHistory.map((entry, index) => (
-          <div key={index} className="mb-6">
-            <div className="text-sm text-gray-400 mb-2">
-              {new Date(entry.timestamp).toLocaleString()}
+          <div key={index} className="mb-6 bg-gray-900 p-4 rounded-lg">
+            <div className="text-sm text-gray-400 mb-2 flex justify-between">
+              <span>{new Date(entry.timestamp).toLocaleString()}</span>
             </div>
-            {entry.message && (
-              <div className="bg-gray-900 p-2 rounded mb-2 text-sm">
-                <span className="text-gray-400">Message: </span>
-                <span className="text-gray-200">{entry.message}</span>
+            
+            {/* Show the original prompt/purpose */}
+            {entry.prompt && (
+              <div className="mb-4 p-3 bg-purple-900/30 rounded-lg border-l-2 border-purple-500">
+                <div className="text-sm text-purple-300 mb-1">Original Prompt:</div>
+                <div className="text-sm text-gray-200">{entry.prompt}</div>
               </div>
             )}
-            <div className="space-y-2">
-              {Object.entries(entry.files).map(([filename, content]) => (
-                <div
-                  key={filename}
-                  className="bg-gray-700 p-3 rounded-lg cursor-pointer hover:bg-gray-600 transition-colors"
-                  onClick={() => {
-                    setSelectedFile({
-                      name: filename,
-                      content,
-                      buildSteps: entry.buildSteps,
-                      runCommands: entry.runCommands,
-                      message: entry.message, // Include message in selected file info
-                    });
-                    setShowHistoryDrawer(false);
-                  }}
-                >
-                  <span className="text-sm text-gray-200">{filename}</span>
-                </div>
-              ))}
+
+            {/* Generated Files Section */}
+            <div className="mt-3">
+              <div className="text-sm font-medium text-gray-300 mb-2">Generated Files:</div>
+              <div className="space-y-2">
+                {Object.entries(entry.files).map(([filename, content]) => (
+                  <div
+                    key={filename}
+                    className="bg-gray-800 p-3 rounded-lg cursor-pointer hover:bg-gray-700 transition-colors flex items-center"
+                    onClick={() => {
+                      setSelectedFile({
+                        name: filename,
+                        content,
+                        prompt: entry.prompt,
+                        buildSteps: entry.buildSteps,
+                        runCommands: entry.runCommands
+                      });
+                      setShowHistoryDrawer(false);
+                    }}
+                  >
+                    <IoCodeOutline className="mr-2 text-gray-400" size={16} />
+                    <span className="text-sm text-gray-200">{filename}</span>
+                  </div>
+                ))}
+              </div>
             </div>
+
+            {/* Build Steps Section */}
+            {entry.buildSteps && entry.buildSteps.length > 0 && (
+              <div className="mt-3">
+                <div className="text-sm font-medium text-gray-300 mb-2">Build Steps:</div>
+                <ol className="list-decimal pl-5 space-y-1">
+                  {entry.buildSteps.map((step, idx) => (
+                    <li key={idx} className="text-sm text-gray-400">{step}</li>
+                  ))}
+                </ol>
+              </div>
+            )}
+
+            {/* Run Commands Section */}
+            {entry.runCommands && entry.runCommands.length > 0 && (
+              <div className="mt-3">
+                <div className="text-sm font-medium text-gray-300 mb-2">Run Commands:</div>
+                <div className="space-y-1">
+                  {entry.runCommands.map((cmd, idx) => (
+                    <div key={idx} className="text-sm font-mono bg-gray-800 p-2 rounded">
+                      {cmd}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -872,8 +910,9 @@ const Project = () => {
                 .filter(
                   (msg) =>
                     msg.isAI ||
+                    msg.isAiTargeted || // Add this condition
                     (typeof msg.message === "string" &&
-                      msg.message.toLowerCase().includes("@ai"))
+                        msg.message.toLowerCase().includes("@ai"))
                 )
                 .map((msg, index) => renderMessage(msg, index))}
 
