@@ -13,7 +13,7 @@ const PromptPage = () => {
   const [prompt, setPrompt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userId] = useState('temp-' + Math.random()); // Temporary user ID
+  const [walletAddress, setWalletAddress] = useState(null);
 
   // Initialize WebSocket connection
   useEffect(() => {
@@ -30,14 +30,39 @@ const PromptPage = () => {
   }, [id]);
 
   useEffect(() => {
+    const getWalletAddress = async () => {
+      try {
+        if (!window.petra) {
+          alert('Please install Petra wallet');
+          return;
+        }
+        
+        const wallet = window.petra;
+        await wallet.connect();
+        const account = await wallet.account();
+        // Only store the address string
+        if (account && typeof account === 'object' && account.address) {
+          setWalletAddress(account.address);
+          console.log('Connected wallet address:', account.address);
+        }
+      } catch (error) {
+        console.error('Error connecting to Petra wallet:', error);
+      }
+    };
+    getWalletAddress();
+  }, []);
+
+  useEffect(() => {
     fetchPromptAndVoteStatus();
-  }, [id]);
+  }, [id, walletAddress]);
 
   const fetchPromptAndVoteStatus = async () => {
+    if (!walletAddress) return;
+
     try {
       const [promptRes, voteStatusRes] = await Promise.all([
         fetch(`http://localhost:5001/api/prompts/${id}`),
-        fetch(`http://localhost:5001/api/prompts/${id}/vote-status?userId=${userId}`)
+        fetch(`http://localhost:5001/api/prompts/${id}/vote-status?walletAddress=${walletAddress}`)
       ]);
 
       if (!promptRes.ok) throw new Error('Prompt not found');
@@ -58,28 +83,44 @@ const PromptPage = () => {
   };
 
   const handleVote = async () => {
-    if (prompt.hasVoted) return;
+    if (!walletAddress) {
+      alert('Please connect your wallet first');
+      return;
+    }
 
     try {
+      // Optimistically update UI
+      setPrompt(prev => ({
+        ...prev,
+        votes: prev.hasVoted ? prev.votes - 1 : prev.votes + 1,
+        hasVoted: !prev.hasVoted
+      }));
+
       const response = await fetch(`http://localhost:5001/api/prompts/${id}/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId })
+        body: JSON.stringify({ walletAddress }) 
       });
 
       if (!response.ok) {
         const error = await response.json();
-        if (error.error === 'Already voted') return;
+        // Revert optimistic update if request fails
+        setPrompt(prev => ({
+          ...prev,
+          votes: prev.hasVoted ? prev.votes - 1 : prev.votes + 1,
+          hasVoted: !prev.hasVoted
+        }));
         throw new Error(error.error);
       }
 
       const data = await response.json();
+      // Update with actual server data
       setPrompt(prev => ({
         ...prev,
         votes: data.votes,
-        hasVoted: true
+        hasVoted: data.hasVoted
       }));
     } catch (error) {
       console.error('Error voting:', error);
@@ -172,10 +213,10 @@ const PromptPage = () => {
               </div>
               <button
                 onClick={handleVote}
-                disabled={prompt.hasVoted}
                 className={`flex items-center gap-1.5 transition-colors group ${
                   prompt.hasVoted ? 'text-purple-400' : 'text-gray-400 hover:text-purple-400'
                 }`}
+                title={prompt.hasVoted ? 'Click to remove vote' : 'Click to vote'}
               >
                 <ArrowBigUp 
                   size={24} 

@@ -11,6 +11,7 @@ const ExplorePage = () => {
   const [loading, setLoading] = useState(true);
   const [selectedPrompt, setSelectedPrompt] = useState(null);
   const [userId] = useState(localStorage.getItem('userId') || 'user-' + Math.random());
+  const [walletAddress, setWalletAddress] = useState(null);
 
   useEffect(() => {
     localStorage.setItem('userId', userId);
@@ -18,6 +19,29 @@ const ExplorePage = () => {
 
   useEffect(() => {
     fetchPrompts();
+  }, []);
+
+  useEffect(() => {
+    const getWalletAddress = async () => {
+      try {
+        if (!window.petra) {
+          alert('Please install Petra wallet');
+          return;
+        }
+        
+        const wallet = window.petra;
+        await wallet.connect();
+        const account = await wallet.account();
+        // Only store the address string
+        if (account && typeof account === 'object' && account.address) {
+          setWalletAddress(account.address);
+          console.log('Connected wallet address:', account.address);
+        }
+      } catch (error) {
+        console.error('Error connecting to Petra wallet:', error);
+      }
+    };
+    getWalletAddress();
   }, []);
 
   const fetchPrompts = async () => {
@@ -52,13 +76,15 @@ const ExplorePage = () => {
 
   useEffect(() => {
     checkVoteStatuses();
-  }, [prompts]);
+  }, [prompts, walletAddress]);
 
   const checkVoteStatuses = async () => {
+    if (!walletAddress) return;
+
     try {
       const votedStatuses = await Promise.all(
         prompts.map(prompt =>
-          fetch(`http://localhost:5001/api/prompts/${prompt._id}/vote-status?userId=${userId}`)
+          fetch(`http://localhost:5001/api/prompts/${prompt._id}/vote-status?walletAddress=${walletAddress}`)
             .then(res => res.json())
         )
       );
@@ -74,27 +100,55 @@ const ExplorePage = () => {
   };
 
   const handleVote = async (promptId) => {
+    if (!walletAddress) {
+      alert('Please connect your wallet first');
+      return;
+    }
+
     try {
+      // Optimistically update UI
+      setPrompts(currentPrompts =>
+        currentPrompts.map(p =>
+          p._id === promptId ? {
+            ...p,
+            votes: p.hasVoted ? p.votes - 1 : p.votes + 1,
+            hasVoted: !p.hasVoted
+          } : p
+        )
+      );
+
       const response = await fetch(`http://localhost:5001/api/prompts/${promptId}/vote`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ userId })
+        body: JSON.stringify({ walletAddress })
       });
 
       const data = await response.json();
       
       if (!response.ok) {
-        if (data.error === 'Already voted') {
-          return;
-        }
+        // Revert optimistic update if request fails
+        setPrompts(currentPrompts =>
+          currentPrompts.map(p =>
+            p._id === promptId ? {
+              ...p,
+              votes: p.hasVoted ? p.votes - 1 : p.votes + 1,
+              hasVoted: !p.hasVoted
+            } : p
+          )
+        );
         throw new Error(data.error);
       }
 
+      // Update with actual server data
       setPrompts(currentPrompts =>
         currentPrompts.map(p =>
-          p._id === promptId ? { ...p, votes: data.votes, hasVoted: true } : p
+          p._id === promptId ? {
+            ...p,
+            votes: data.votes,
+            hasVoted: data.hasVoted
+          } : p
         )
       );
     } catch (error) {
@@ -123,6 +177,16 @@ const ExplorePage = () => {
       console.error('Error sharing:', error);
     }
   };
+
+  // Update selectedPrompt when votes change
+  useEffect(() => {
+    if (selectedPrompt) {
+      const updatedPrompt = prompts.find(p => p._id === selectedPrompt._id);
+      if (updatedPrompt) {
+        setSelectedPrompt(updatedPrompt);
+      }
+    }
+  }, [prompts, selectedPrompt?._id]);
 
   return (
     <div className="bg-gray-900 min-h-screen text-white">
@@ -189,10 +253,10 @@ const ExplorePage = () => {
                     </div>
                     <button
                       onClick={() => handleVote(prompt._id)}
-                      disabled={prompt.hasVoted}
                       className={`flex items-center gap-1.5 transition-colors group ${
                         prompt.hasVoted ? 'text-purple-400' : 'text-gray-400 hover:text-purple-400'
                       }`}
+                      title={prompt.hasVoted ? 'Click to remove vote' : 'Click to vote'}
                     >
                       <ArrowBigUp 
                         size={24} 

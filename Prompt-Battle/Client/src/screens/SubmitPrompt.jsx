@@ -6,10 +6,12 @@ import rehypeRaw from 'rehype-raw';
 import rehypeSanitize from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
 import SubmitSuccessModal from '../components/SubmitSuccessModal';
+import { useWallet } from '../context/WalletContext';
 
 const PromptSubmitPage = () => {
   const navigate = useNavigate(); // ✅ Initialize navigation
   const theme = "Programming Challenge"; // This could come from props or route params
+  const { isWalletConnected, walletAddress, connectWallet } = useWallet();
 
   const [prompt, setPrompt] = useState('');
   const [generatedOutput, setGeneratedOutput] = useState('');
@@ -96,8 +98,25 @@ const PromptSubmitPage = () => {
   };
 
   const handleSubmit = async () => {
+    if (!isWalletConnected) {
+      console.log('Wallet not connected, cannot submit');
+      alert('Please connect your wallet first');
+      return;
+    }
+
+    console.log('Submitting prompt with wallet address:', walletAddress);
+
     if (prompt.trim() && generatedOutput && problemStatement) {
       try {
+        setIsLoading(true);
+        console.log('Submission payload:', {
+          prompt,
+          generatedOutput,
+          subject: theme,
+          problemStatement,
+          walletAddress,
+        });
+
         const response = await fetch('http://localhost:5001/api/prompts/submit', {
           method: 'POST',
           headers: {
@@ -106,18 +125,48 @@ const PromptSubmitPage = () => {
           body: JSON.stringify({
             prompt,
             generatedOutput,
-            subject: theme, // Use theme instead of subject
-            problemStatement
+            subject: theme,
+            problemStatement,
+            walletAddress,
           }),
         });
+
+        console.log('Submission response status:', response.status);
         const data = await response.json();
+        console.log('Submission response data:', data);
+
+        if (!response.ok) {
+          throw new Error('Failed to submit prompt');
+        }
+
         setIsSubmitted(true);
-        setSubmittedPrompt(data.prompt); // Save the submitted prompt data
+        setSubmittedPrompt(data.prompt);
+        setShowSuccessModal(true);
       } catch (error) {
         console.error('Error submitting prompt:', error);
+        alert('Failed to submit prompt. Please try again.');
+      } finally {
+        setIsLoading(false);
       }
     }
   };
+
+  if (!isWalletConnected) {
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-white mb-4">Connect Wallet to Submit</h2>
+          <p className="text-gray-400 mb-6">You need to connect your Petra wallet to submit prompts</p>
+          <button
+            onClick={connectWallet}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-6 py-3 rounded-lg transition-colors"
+          >
+            Connect Wallet
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

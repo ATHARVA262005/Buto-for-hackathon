@@ -53,8 +53,19 @@ io.use(async (socket, next) => {
 
 io.on('connection', socket => {
     socket.roomId = socket.project._id.toString();
-    console.log('New client connected');
+    console.log(`New client connected | User: ${socket.user.email} | Room: ${socket.roomId}`);
     socket.join(socket.roomId);
+
+    // Notify room about new user
+    socket.to(socket.roomId).emit('user-joined', {
+        email: socket.user.email,
+        timestamp: new Date().getTime()
+    });
+
+    // Get number of clients in this room
+    const clients = io.sockets.adapter.rooms.get(socket.roomId);
+    const numClients = clients ? clients.size : 0;
+    console.log(`Current users in room ${socket.roomId}: ${numClients}`);
 
     socket.on("project-message", async data => {
         const message = data.message;
@@ -62,6 +73,14 @@ io.on('connection', socket => {
 
         if (aiIsPresentInMessage) {
             try {
+                // Broadcast to room that user is making an AI request
+                io.to(socket.roomId).emit('project-message', {
+                    message: message,
+                    sender: socket.user.email,
+                    isAiTargeted: true,
+                    timestamp: new Date().getTime()
+                });
+
                 const prompt = message.replace("@ai", "").trim();
                 const result = await generateResult(prompt, socket.roomId);
                 await messageService.saveMessage({
@@ -101,7 +120,13 @@ io.on('connection', socket => {
         }
     });
 
-    socket.on('disconnect', () => { console.log('Client disconnected'); });
+    socket.on('disconnect', () => { 
+        console.log(`Client disconnected | User: ${socket.user.email} | Room: ${socket.roomId}`);
+        socket.to(socket.roomId).emit('user-left', {
+            email: socket.user.email,
+            timestamp: new Date().getTime()
+        });
+    });
 });
 
 // Authentication Routes for OTP & Password Reset
